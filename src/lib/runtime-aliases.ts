@@ -5,32 +5,47 @@ import { parse } from 'jsonc-parser';
 import { registerHooks } from 'node:module';
 import { pathToFileURL } from 'node:url';
 
-function parseArgs(argv: string[]) {
+export function parseArgs(argv: string[]) {
   const res: Record<string, any> = {};
+
+  const normalizeKey = (key: string) =>
+    key.replace(/-([a-z])/g, (_, c) => c.toUpperCase());
+
+  const normalizeValue = (val: any) => {
+    if (val === 'true') return true;
+    if (val === 'false') return false;
+    return val;
+  };
 
   for (let i = 2; i < argv.length; i++) {
     const arg = argv[i];
 
-    if (!arg.startsWith('--')) {
-      continue;
-    }
+    if (!arg.startsWith('--')) continue;
 
-    const eq = arg.indexOf('=');
+    const eqIndex = arg.indexOf('=');
 
-    if (eq !== -1) {
-      res[arg.slice(2, eq)] = arg.slice(eq + 1);
-      continue;
-    }
+    let key: string;
+    let val: any = true;
 
-    const key = arg.slice(2);
-    const next = argv[i + 1];
+    // --key=value
+    if (eqIndex !== -1) {
+      key = arg.slice(2, eqIndex);
+      val = arg.slice(eqIndex + 1);
 
-    if (next && !next.startsWith('-')) {
-      res[key] = next;
-      i++;
     } else {
-      res[key] = true;
+      key = arg.slice(2);
+
+      const next = argv[i + 1];
+
+      // --key value
+      if (next && !next.startsWith('-')) {
+        val = next;
+        i++;
+      }
     }
+
+    const normalizedKey = normalizeKey(key);
+    res[normalizedKey] = normalizeValue(val);
   }
 
   return res;
@@ -113,7 +128,7 @@ function resolveCandidate(basePath: string) {
       if (stat.isFile()) {
         return candidate;
       }
-    } catch {}
+    } catch { }
   }
 
   return null;
